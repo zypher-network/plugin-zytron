@@ -1,5 +1,5 @@
 import * as nc from 'node:crypto';
-import { elizaLogger } from '@elizaos/core';
+import { elizaLogger, composeContext, generateObjectDeprecated, ModelClass } from '@elizaos/core';
 
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -13685,6 +13685,7 @@ function createWalletClient(parameters) {
 
 // node_modules/viem/_esm/index.js
 init_formatUnits();
+init_isAddress();
 
 // node_modules/viem/_esm/accounts/index.js
 init_esm_shims();
@@ -17935,18 +17936,19 @@ var WalletProvider = class {
     });
   }
   getPublicClient() {
-    return createPublicClient({
+    const publicClient = createPublicClient({
       chain: this.network,
       transport: http()
     });
+    return publicClient;
   }
   getWalletAddress() {
     return this.client.account.address;
   }
-  async getBalance() {
+  async getBalance(address) {
     const publicClient = this.getPublicClient();
     const balance = await publicClient.getBalance({
-      address: this.client.account.address
+      address: address || this.client.account.address
     });
     return formatUnits(balance, 18);
   }
@@ -17960,7 +17962,7 @@ var initWalletProvider = (runtime) => {
 };
 var zytronProvider = {
   get: async (runtime, _message, _state) => {
-    elizaLogger.debug("[zytronProvider]: get - start");
+    elizaLogger.info("[zytronProvider]: get - start");
     const walletProvider = initWalletProvider(runtime);
     const balance = await walletProvider.getBalance();
     return [
@@ -17971,12 +17973,143 @@ var zytronProvider = {
   }
 };
 
+// src/actions/checkWallet.ts
+init_esm_shims();
+
+// src/templates/index.ts
+init_esm_shims();
+var checkWalletTemplate = `Given the recent messages below:
+
+{{recentMessages}}
+
+Extract the wallet address mentioned in the messages. The address must meet one of the following conditions:
+
+A valid Ethereum address that starts with "0x".
+If no valid address is found, return null.
+
+Response Format
+Respond with a JSON markdown block containing only the extracted value:
+
+\`\`\`json
+{ "address": string | null }
+\`\`\`
+
+Ensure the response contains only the JSON block with no additional text.
+`;
+
+// src/actions/checkWallet.ts
+var checkWalletAction = {
+  name: "checkWallet",
+  description: "Retrieve and display the current wallet balance",
+  similes: [
+    "CHECK_BALANCE",
+    "CHECK_WALLET_BALANCE",
+    "CHECK_WALLET_BALANCE_ON_ZYTRON",
+    "GET_BALANCE",
+    "GET_WALLET_BALANCE",
+    "GET_WALLET_BALANCE_ON_ZYTRON"
+  ],
+  validate: async (_runtime) => true,
+  handler: async (runtime, message, state, _options, callback) => {
+    elizaLogger.log("Checking wallet balance...");
+    let currentState = state;
+    if (!currentState) {
+      currentState = await runtime.composeState(message);
+    } else {
+      currentState = await runtime.updateRecentMessageState(currentState);
+    }
+    const checkWalletContext = composeContext({
+      state: currentState,
+      template: checkWalletTemplate
+    });
+    const content = await generateObjectDeprecated({
+      runtime,
+      context: checkWalletContext,
+      modelClass: ModelClass.LARGE
+    });
+    const walletProvider = initWalletProvider(runtime);
+    let balance = "0";
+    let text = "";
+    const symbol = walletProvider.network.nativeCurrency.symbol;
+    const address = content.address || walletProvider.getWalletAddress();
+    try {
+      if (!isAddress(address)) throw new Error(`Invalid address: ${address}`);
+      balance = await walletProvider.getBalance(address);
+      text = `Balance of ${address} on Zytron Mainnet: **${balance} ${symbol}**`;
+    } catch (error) {
+      elizaLogger.error("Error during check wallet balance:", error.message);
+      text = `Check wallet balance failed: ${error.message}`;
+    }
+    callback == null ? void 0 : callback({
+      text,
+      content: { balance, text, symbol }
+    });
+    return true;
+  },
+  examples: [
+    [
+      {
+        user: "{{user1}}",
+        content: {
+          text: "Check my wallet"
+        }
+      },
+      {
+        user: "{{agent}}",
+        content: {
+          text: "I'll help you check your wallet balance",
+          action: "CHECK_BALANCE",
+          content: {
+            address: null
+          }
+        }
+      }
+    ],
+    [
+      {
+        user: "{{user1}}",
+        content: {
+          text: "Check my balance"
+        }
+      },
+      {
+        user: "{{agent}}",
+        content: {
+          text: "I'll help you check your wallet balance",
+          action: "CHECK_BALANCE",
+          content: {
+            address: null
+          }
+        }
+      }
+    ],
+    [
+      {
+        user: "{{user1}}",
+        content: {
+          text: "Check 0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
+        }
+      },
+      {
+        user: "{{agent}}",
+        content: {
+          text: "I'll help you check 0x2d15D52Cc138FFB322b732239CD3630735AbaC88's wallet balance",
+          action: "CHECK_BALANCE",
+          content: {
+            address: "0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
+          }
+        }
+      }
+    ]
+  ]
+};
+
 // src/index.ts
 var zytronPlugin = {
   name: "zytron",
   description: "Zytron Plugin for Eliza",
   providers: [zytronProvider],
-  actions: [],
+  actions: [checkWalletAction],
   evaluators: []
 };
 var index_default = zytronPlugin;

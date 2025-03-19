@@ -29,13 +29,15 @@
   },
   "devDependencies": {
     "tsup": "^8.4.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
   },
   "dependencies": {
-    "@elizaos/core": "^0.25.9"
+    "@elizaos/core": "workspace:*"
   },
   "scripts": {
     "build": "tsup --format esm --dts",
-    "dev": "tsup --format esm --dts --watch"
+    "dev": "tsup --format esm --dts --watch",
+    "test": "vitest"
   }
 }

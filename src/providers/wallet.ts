@@ -1,4 +1,4 @@
-import { Chain, createPublicClient, createWalletClient, http, WalletClient, formatUnits } from "viem";
+import { Chain, createPublicClient, createWalletClient, http, WalletClient, formatUnits, PublicClient, HttpTransport, Account, Address } from "viem";
 import { privateKeyToAccount } from 'viem/accounts';
 import {
   elizaLogger,
@@ -18,7 +18,7 @@ export class WalletProvider {
     this.setClient(privateKey);
   }
 
-  setClient(privateKey: `0x${string}`) {
+  setClient(privateKey: `0x${string}`): void {
     this.client = createWalletClient({
       account: privateKeyToAccount(privateKey),
       chain: this.network,
@@ -26,23 +26,35 @@ export class WalletProvider {
     });
   }
 
-  getPublicClient() {
-    return createPublicClient({
+  getPublicClient(): PublicClient<HttpTransport, Chain, Account | undefined>  {
+    const publicClient = createPublicClient({
       chain: this.network,
       transport: http(),
     });
+    return publicClient;
   }
 
-  getWalletAddress() {
+  getWalletAddress(): Address {
     return this.client.account.address;
   }
 
-  async getBalance() {
+  async getBalance(address?: Address): Promise<string> {
     const publicClient = this.getPublicClient();
     const balance = await publicClient.getBalance({
-      address: this.client.account.address,
+      address: address || this.client.account.address,
     });
     return formatUnits(balance, 18);
+  }
+
+  async sendNativeToken(recipient: string, value: bigint): Promise<string> {
+    const hash = await this.client.sendTransaction({
+      value,
+      account: this.client.account,
+      to: recipient,
+      kzg: undefined,
+      chain: this.network,
+    });
+    return hash;
   }
 }
 
@@ -57,7 +69,7 @@ export const initWalletProvider = (runtime: IAgentRuntime) => {
 
 export const zytronProvider: Provider = {
   get: async (runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<string> => {
-    elizaLogger.debug("[zytronProvider]: get - start");
+    elizaLogger.info("[zytronProvider]: get - start");
     const walletProvider = initWalletProvider(runtime);
     const balance = await walletProvider.getBalance();
     return [

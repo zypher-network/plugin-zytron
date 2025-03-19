@@ -6,6 +6,10 @@
     "module": "Preserve",
     "moduleResolution": "Bundler",
     "strict": false,
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+    },
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": false,

@@ -16,8 +16,10 @@ ZYTRON_PRIVATE_KEY=<Your Zytron Private Key>
 **Usage Examples**
 
 ```bash
-Check balance
+Check my wallet
+Check 0x2d15D52Cc138FFB322b732239CD3630735AbaC88
 ```
+![Result](screenshot/check-wallet.png)
 
 ### 2. Token Transfers
 
@@ -25,6 +27,7 @@ Check balance
 ```bash
 Send 0.01 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88
 ```
+![Result](screenshot/send-token.png)
 
 ## Future Enhancements
 ---
