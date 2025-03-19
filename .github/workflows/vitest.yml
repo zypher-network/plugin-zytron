@@ -1,0 +1,27 @@
+name: Run Plugin-Zytron Tests
+
+on:
+  push:
+    branches:
+      - main  # This will trigger when changes are pushed to the main branch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu system
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3  # Checkout code
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '23.3.0'  # Set Node.js version (can be changed as needed)
+
+      - name: Install dependencies
+        run: |
+          yarn install
+
+      - name: Run Vitest tests
+        run: |
+          yarn test
