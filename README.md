@@ -1,7 +1,7 @@
 # `@elizaos/plugin-zytron`
 
 A plugin for interacting with the Zytron Mainnet within the ElizaOS ecosystem.
----
+
 
 ## Setup
 

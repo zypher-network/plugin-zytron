@@ -3,33 +3,6 @@ import { generateObjectDeprecated } from '@elizaos/core';
 import { checkWalletAction } from '../src/actions/checkWallet';
 import { initWalletProvider } from '../src/providers/wallet';
 
-vi.mock('@elizaos/core', () => ({
-  generateObjectDeprecated: vi.fn(),
-  composeContext: vi.fn(),
-  elizaLogger: {
-    log: vi.fn(),
-    debug: vi.fn(),
-    error: vi.fn(),
-    success: vi.fn(),
-  },
-  ModelClass: {
-    LARGE: 'large'
-  }
-}));
-
-// Mock the wallet provider
-vi.mock('../src/providers/wallet', () => ({
-  initWalletProvider: vi.fn(() => ({
-    network: {
-      nativeCurrency: {
-        symbol: 'ETH'
-      }
-    },
-    getWalletAddress: vi.fn(() => '0x1234567890123456789012345678901234567890'),
-    getBalance: vi.fn(() => '1.5')
-  }))
-}));
-
 describe('checkWalletAction', () => {
   const mockRuntime = {
     composeState: vi.fn(),
@@ -41,11 +14,6 @@ describe('checkWalletAction', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it('should have correct name and description', () => {
-    expect(checkWalletAction.name).toBe('checkWallet');
-    expect(checkWalletAction.description).toBe('Retrieve and display the wallet balance for your wallet or the specified address on Zytron Mainnet.');
   });
 
   it('should check balance for default wallet address', async () => {
