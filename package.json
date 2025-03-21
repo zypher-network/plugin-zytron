@@ -33,7 +33,7 @@
     "vitest": "^3.0.9"
   },
   "dependencies": {
-    "@elizaos/core": "workspace:*"
+    "@elizaos/core": "^0.25.9"
   },
   "scripts": {
     "build": "tsup --format esm --dts",
