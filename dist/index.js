@@ -12399,6 +12399,55 @@ function toYParitySignatureArray(transaction, signature_) {
   return [yParity_, r === "0x00" ? "0x" : r, s === "0x00" ? "0x" : s];
 }
 
+// node_modules/viem/_esm/utils/unit/parseUnits.js
+init_esm_shims();
+
+// node_modules/viem/_esm/errors/unit.js
+init_esm_shims();
+init_base();
+var InvalidDecimalNumberError = class extends BaseError2 {
+  constructor({ value }) {
+    super(`Number \`${value}\` is not a valid decimal number.`, {
+      name: "InvalidDecimalNumberError"
+    });
+  }
+};
+
+// node_modules/viem/_esm/utils/unit/parseUnits.js
+function parseUnits(value, decimals) {
+  if (!/^(-?)([0-9]*)\.?([0-9]*)$/.test(value))
+    throw new InvalidDecimalNumberError({ value });
+  let [integer, fraction = "0"] = value.split(".");
+  const negative = integer.startsWith("-");
+  if (negative)
+    integer = integer.slice(1);
+  fraction = fraction.replace(/(0+)$/, "");
+  if (decimals === 0) {
+    if (Math.round(Number(`.${fraction}`)) === 1)
+      integer = `${BigInt(integer) + 1n}`;
+    fraction = "";
+  } else if (fraction.length > decimals) {
+    const [left, unit, right] = [
+      fraction.slice(0, decimals - 1),
+      fraction.slice(decimals - 1, decimals),
+      fraction.slice(decimals)
+    ];
+    const rounded = Math.round(Number(`${unit}.${right}`));
+    if (rounded > 9)
+      fraction = `${BigInt(left) + BigInt(1)}0`.padStart(left.length + 1, "0");
+    else
+      fraction = `${left}${rounded}`;
+    if (fraction.length > decimals) {
+      fraction = fraction.slice(1);
+      integer = `${BigInt(integer) + 1n}`;
+    }
+    fraction = fraction.slice(0, decimals);
+  } else {
+    fraction = fraction.padEnd(decimals, "0");
+  }
+  return BigInt(`${negative ? "-" : ""}${integer}${fraction}`);
+}
+
 // node_modules/viem/_esm/utils/formatters/proof.js
 function formatStorageProof(storageProof) {
   return storageProof.map((proof) => ({
@@ -17952,6 +18001,16 @@ var WalletProvider = class {
     });
     return formatUnits(balance, 18);
   }
+  async sendNativeToken(recipient, value) {
+    const hash2 = await this.client.sendTransaction({
+      value,
+      account: this.client.account,
+      to: recipient,
+      kzg: void 0,
+      chain: this.network
+    });
+    return hash2;
+  }
 };
 var initWalletProvider = (runtime) => {
   const privateKey = runtime.getSetting(ENV_KEYS.ZYTRON_PRIVATE_KEY);
@@ -17985,13 +18044,38 @@ var checkWalletTemplate = `Given the recent messages below:
 Extract the wallet address mentioned in the messages. The address must meet one of the following conditions:
 
 A valid Ethereum address that starts with "0x".
-If no valid address is found, return null.
+If no valid address is found, return an empty string ("").
 
 Response Format
 Respond with a JSON markdown block containing only the extracted value:
 
 \`\`\`json
-{ "address": string | null }
+{ "address": string }
+\`\`\`
+
+Ensure the response contains only the JSON block with no additional text.
+`;
+var sendTokenTemplate = `Given the recent messages below:
+
+{{recentMessages}}
+
+Extract the following information from the messages:
+
+- Amount to send (e.g., "0.01" or "1"). This should be the number before the token symbol (e.g., ETH).
+- Token symbol (e.g., "ETH", "USDT"). This should be the token symbol mentioned in the message.
+- Recipient address. This should be a valid Ethereum address starting with "0x".
+
+If any of the fields are missing, return ("") for that field.
+
+Response Format
+Respond with a JSON markdown block containing only the extracted values:
+
+\`\`\`json
+{
+    "amount": string,
+    "symbol": string,
+    "recipient": string
+}
 \`\`\`
 
 Ensure the response contains only the JSON block with no additional text.
@@ -18000,7 +18084,7 @@ Ensure the response contains only the JSON block with no additional text.
 // src/actions/checkWallet.ts
 var checkWalletAction = {
   name: "checkWallet",
-  description: "Retrieve and display the current wallet balance",
+  description: "Retrieve and display the wallet balance for your wallet or the specified address on Zytron Mainnet.",
   similes: [
     "CHECK_BALANCE",
     "CHECK_WALLET_BALANCE",
@@ -18031,11 +18115,12 @@ var checkWalletAction = {
     let balance = "0";
     let text = "";
     const symbol = walletProvider.network.nativeCurrency.symbol;
-    const address = content.address || walletProvider.getWalletAddress();
+    const address = (content == null ? void 0 : content.address) ?? walletProvider.getWalletAddress();
     try {
       if (!isAddress(address)) throw new Error(`Invalid address: ${address}`);
       balance = await walletProvider.getBalance(address);
-      text = `Balance of ${address} on Zytron Mainnet: **${balance} ${symbol}**`;
+      text = `Balance of ${address} on Zytron Mainnet:
+- ${balance} ${symbol}`;
     } catch (error) {
       elizaLogger.error("Error during check wallet balance:", error.message);
       text = `Check wallet balance failed: ${error.message}`;
@@ -18104,12 +18189,120 @@ var checkWalletAction = {
   ]
 };
 
+// src/actions/sendToken.ts
+init_esm_shims();
+
+// src/types/index.ts
+init_esm_shims();
+
+// src/actions/sendToken.ts
+var sendTokenAction = {
+  name: "sendToken",
+  description: "Send token to the specified address on Zytron Mainnet.",
+  similes: [
+    "SEND_TOKEN",
+    "SEND_TOKEN_ON_ZYTRON",
+    "TRANSFER_TOKEN",
+    "TRANSFER_TOKEN_ON_ZYTRON"
+  ],
+  validate: async (_runtime) => true,
+  handler: async (runtime, message, state, _options, callback) => {
+    elizaLogger.log("Sending token...");
+    let currentState = state;
+    if (!currentState) {
+      currentState = await runtime.composeState(message);
+    } else {
+      currentState = await runtime.updateRecentMessageState(currentState);
+    }
+    const sendTokenContext = composeContext({
+      state: currentState,
+      template: sendTokenTemplate
+    });
+    const content = await generateObjectDeprecated({
+      runtime,
+      context: sendTokenContext,
+      modelClass: ModelClass.LARGE
+    });
+    const walletProvider = initWalletProvider(runtime);
+    const { amount, symbol, recipient } = content ?? {};
+    let text = "";
+    let transactionHash = "";
+    try {
+      if (![amount, symbol, recipient].every(Boolean)) throw new Error("Please ensure all fields are provided correctly.");
+      if (recipient.toLowerCase() === walletProvider.getWalletAddress().toLowerCase()) throw new Error("Please ensure the recipient address is different from your wallet address.");
+      if (!isAddress(recipient)) throw new Error("Please ensure the recipient address is valid.");
+      if (symbol.toUpperCase() !== "ETH" /* ETH */) throw new Error("Token is not supported.");
+      const balance = await walletProvider.getBalance();
+      if (balance < amount) throw new Error("Insufficient balance.");
+      const value = parseUnits(amount.toString(), walletProvider.network.nativeCurrency.decimals);
+      transactionHash = await walletProvider.sendNativeToken(recipient, value);
+      text = [
+        "Success! Your transaction has been successfully submitted.",
+        `Amount: ${amount} ${symbol}`,
+        `Recipient: ${recipient}
+`,
+        `Transaction Hash: ${transactionHash}`
+      ].join("\n");
+    } catch (error) {
+      elizaLogger.error("Error during send token:", error.message);
+      text = `Send Token failed: ${error.message}`;
+    }
+    callback == null ? void 0 : callback({
+      text,
+      content: { transactionHash, amount, symbol, recipient }
+    });
+    return true;
+  },
+  examples: [
+    [
+      {
+        user: "{{user1}}",
+        content: {
+          text: "Send 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
+        }
+      },
+      {
+        user: "{{agent}}",
+        content: {
+          text: "I'll help you send 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88",
+          action: "SEND_TOKEN",
+          content: {
+            amount: "0.0001",
+            symbol: "ETH",
+            recipient: "0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
+          }
+        }
+      }
+    ],
+    [
+      {
+        user: "{{user1}}",
+        content: {
+          text: "Transfer 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
+        }
+      },
+      {
+        user: "{{agent}}",
+        content: {
+          text: "I'll help you transfer 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88",
+          action: "SEND_TOKEN",
+          content: {
+            amount: "0.0001",
+            symbol: "ETH",
+            recipient: "0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
+          }
+        }
+      }
+    ]
+  ]
+};
+
 // src/index.ts
 var zytronPlugin = {
   name: "zytron",
   description: "Zytron Plugin for Eliza",
   providers: [zytronProvider],
-  actions: [checkWalletAction],
+  actions: [checkWalletAction, sendTokenAction],
   evaluators: []
 };
 var index_default = zytronPlugin;
