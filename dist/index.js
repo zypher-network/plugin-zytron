@@ -19485,13 +19485,13 @@ A valid Ethereum address that starts with "0x".
 If no valid address is found, return an empty string ("").
 
 Response Format
-Respond with a JSON markdown block containing only the extracted value:
+Respond with an XML block containing only the extracted values. Use empty tags for any values that cannot be determined.
 
-\`\`\`json
-{ "address": string }
-\`\`\`
+<response>
+    <address>string | null</address>
+</response>
 
-Ensure the response contains only the JSON block with no additional text.
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
 `;
 var sendTokenTemplate = `Given the recent messages below:
 
@@ -19506,17 +19506,15 @@ Extract the following information from the messages:
 If any of the fields are missing, return ("") for that field.
 
 Response Format
-Respond with a JSON markdown block containing only the extracted values:
+Respond with an XML block containing only the extracted values. Use empty tags for any values that cannot be determined.
 
-\`\`\`json
-{
-    "amount": string,
-    "symbol": string,
-    "recipient": string
-}
-\`\`\`
+<response>
+    <amount>string | null</amount>
+    <symbol>string | null</symbol>
+    <recipient>string | null</recipient>
+</response>
 
-Ensure the response contains only the JSON block with no additional text.
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
 `;
 
 // src/actions/checkWallet.ts
