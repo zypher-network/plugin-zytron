@@ -6,6 +6,7 @@ import {
   type Memory,
   type Provider,
   type State,
+  type ProviderResult,
 } from "@elizaos/core";
 import { ENV_KEYS } from "../environment";
 import { zytron } from "../constants";
@@ -68,14 +69,25 @@ export const initWalletProvider = (runtime: IAgentRuntime) => {
 };
 
 export const zytronProvider: Provider = {
-  get: async (runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<string> => {
+  name: 'ZytronProvider',
+  get: async (runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<ProviderResult> => {
     elizaLogger.info("[zytronProvider]: get - start");
     const walletProvider = initWalletProvider(runtime);
     const balance = await walletProvider.getBalance();
-    return [
-      `Zytron Mainnet (ChainId: ${walletProvider.network.id})`,
-      `- Wallet Address: ${walletProvider.getWalletAddress()}`,
-      `- Balance       : ${balance} ${walletProvider.network.nativeCurrency.symbol}`,
-    ].join('\n\n');
+    return {
+      text: [
+        `Zytron Mainnet (ChainId: ${walletProvider.network.id})`,
+        `- Wallet Address: ${walletProvider.getWalletAddress()}`,
+        `- Balance       : ${balance} ${walletProvider.network.nativeCurrency.symbol}`,
+      ].join('\n\n'),
+      data: {
+        address: walletProvider.getWalletAddress(),
+        balance,
+      },
+      values: {
+        address: walletProvider.getWalletAddress(),
+        balance,
+      }
+    }
   }
 };

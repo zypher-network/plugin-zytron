@@ -1,4 +1,4 @@
-import { Action, composeContext, elizaLogger, generateObjectDeprecated, HandlerCallback, IAgentRuntime, Memory, ModelClass, State } from '@elizaos/core';
+import { Action, composePromptFromState, elizaLogger, HandlerCallback, IAgentRuntime, Memory, ModelType, parseKeyValueXml, State } from '@elizaos/core';
 import { isAddress, parseUnits } from 'viem';
 import { sendTokenTemplate } from '../templates';
 import { initWalletProvider } from '../providers/wallet';
@@ -23,22 +23,20 @@ export const sendTokenAction: Action = {
   ) => {
     elizaLogger.log("Sending token...");
     
-    // Initialize or update state
-    let currentState = state;
-    if (!currentState) {
-        currentState = (await runtime.composeState(message)) as State;
-    } else {
-        currentState = await runtime.updateRecentMessageState(currentState);
+    if (!state) {
+      state = (await runtime.composeState(message)) as State;
     }
-    const sendTokenContext = composeContext({
-      state: currentState,
+
+    const sendTokenContext = composePromptFromState({
+      state,
       template: sendTokenTemplate,
     });
-    const content = await generateObjectDeprecated({
-      runtime,
-      context: sendTokenContext,
-      modelClass: ModelClass.LARGE,
+
+    const xmlResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
+      prompt: sendTokenContext,
     });
+
+    const content = parseKeyValueXml(xmlResponse);
 
     const walletProvider = initWalletProvider(runtime);
     const { amount, symbol, recipient } = content as SendTokenContentResult ?? {};
@@ -73,13 +71,13 @@ export const sendTokenAction: Action = {
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: {
           text: "Send 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
         }
       },
       {
-        user: "{{agent}}",
+        name: "{{agent}}",
         content: {
           text: "I'll help you send 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88",
           action: "SEND_TOKEN",
@@ -93,13 +91,13 @@ export const sendTokenAction: Action = {
     ],
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: {
           text: "Transfer 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
         }
       },
       {
-        user: "{{agent}}",
+        name: "{{agent}}",
         content: {
           text: "I'll help you transfer 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88",
           action: "SEND_TOKEN",

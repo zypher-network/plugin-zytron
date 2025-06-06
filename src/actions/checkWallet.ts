@@ -1,4 +1,4 @@
-import { Action, composeContext, elizaLogger, generateObjectDeprecated, HandlerCallback, IAgentRuntime, Memory, ModelClass, State } from '@elizaos/core';
+import { Action, composePromptFromState, elizaLogger, HandlerCallback, IAgentRuntime, Memory, ModelType, parseKeyValueXml, State } from '@elizaos/core';
 import { checkWalletTemplate } from '../templates';
 import { initWalletProvider } from '../providers/wallet';
 import { isAddress } from 'viem';
@@ -24,22 +24,20 @@ export const checkWalletAction: Action = {
   ) => {
     elizaLogger.log("Checking wallet balance...");
     
-    // Initialize or update state
-    let currentState = state;
-    if (!currentState) {
-        currentState = (await runtime.composeState(message)) as State;
-    } else {
-        currentState = await runtime.updateRecentMessageState(currentState);
+    if (!state) {
+      state = (await runtime.composeState(message)) as State;
     }
-    const checkWalletContext = composeContext({
-      state: currentState,
+    
+    const checkWalletContext = composePromptFromState({
+      state,
       template: checkWalletTemplate,
     });
-    const content = await generateObjectDeprecated({
-      runtime,
-      context: checkWalletContext,
-      modelClass: ModelClass.LARGE,
+
+    const xmlResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
+      prompt: checkWalletContext,
     });
+
+    const content = parseKeyValueXml(xmlResponse);
 
     const walletProvider = initWalletProvider(runtime);
 
@@ -64,13 +62,13 @@ export const checkWalletAction: Action = {
   examples: [
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: {
           text: "Check my wallet"
         }
       },
       {
-        user: "{{agent}}",
+        name: "{{agent}}",
         content: {
           text: "I'll help you check your wallet balance",
           action: "CHECK_BALANCE",
@@ -82,13 +80,13 @@ export const checkWalletAction: Action = {
     ],
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: {
           text: "Check my balance"
         }
       },
       {
-        user: "{{agent}}",
+        name: "{{agent}}",
         content: {
           text: "I'll help you check your wallet balance",
           action: "CHECK_BALANCE",
@@ -100,13 +98,13 @@ export const checkWalletAction: Action = {
     ],
     [
       {
-        user: "{{user1}}",
+        name: "{{user1}}",
         content: {
           text: "Check 0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
         }
       },
       {
-        user: "{{agent}}",
+        name: "{{agent}}",
         content: {
           text: "I'll help you check 0x2d15D52Cc138FFB322b732239CD3630735AbaC88's wallet balance",
           action: "CHECK_BALANCE",
