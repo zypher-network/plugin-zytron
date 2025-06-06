@@ -4,7 +4,7 @@ import { initWalletProvider } from '../providers/wallet';
 import { isAddress } from 'viem';
 
 export const checkWalletAction: Action = {
-  name: 'checkWallet',
+  name: 'CHECK_WALLET',
   description: 'Retrieve and display the wallet balance for your wallet or the specified address on Zytron Mainnet.',
   similes: [
     'CHECK_BALANCE',
@@ -20,20 +20,18 @@ export const checkWalletAction: Action = {
     message: Memory,
     state: State,
     _options: Record<string, unknown>,
-    callback?: HandlerCallback
+    callback?: HandlerCallback,
   ) => {
     elizaLogger.log("Checking wallet balance...");
-    
-    if (!state) {
-      state = (await runtime.composeState(message)) as State;
-    }
-    
+
+    state = await runtime.composeState(message);
+
     const checkWalletContext = composePromptFromState({
       state,
       template: checkWalletTemplate,
     });
 
-    const xmlResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
+    const xmlResponse = await runtime.useModel(ModelType.TEXT_LARGE, {
       prompt: checkWalletContext,
     });
 
@@ -44,19 +42,26 @@ export const checkWalletAction: Action = {
     let balance = '0';
     let text = '';
     const symbol = walletProvider.network.nativeCurrency.symbol;
-    const address = content?.address ?? walletProvider.getWalletAddress();
+    const address = (content?.address || '').trim() || walletProvider.getWalletAddress();
+
     try {
       if (!isAddress(address)) throw new Error(`Invalid address: ${address}`);
       balance = await walletProvider.getBalance(address);
-      text = `Balance of ${address} on Zytron Mainnet:\n- ${balance} ${symbol}`;
+      text = `Balance of ${address} on Zytron Mainnet: - ${balance} ${symbol}`;
     } catch (error) {
       elizaLogger.error("Error during check wallet balance:", error.message);
       text = `Check wallet balance failed: ${error.message}`;
     }
-    callback?.({
-      text,
-      content: { balance, text, symbol },
-    });
+
+    elizaLogger.info(`[check wallet]: ${text}`);
+
+    if (callback) {
+      callback({
+        text,
+        content: { balance, text, symbol },
+      });
+    }
+
     return true;
   },
   examples: [
@@ -64,55 +69,46 @@ export const checkWalletAction: Action = {
       {
         name: "{{user1}}",
         content: {
-          text: "Check my wallet"
+          text: "Check my wallet",
         }
       },
       {
         name: "{{agent}}",
         content: {
-          text: "I'll help you check your wallet balance",
-          action: "CHECK_BALANCE",
-          content: {
-            address: null
-          },
+          text: "Balance of 0x2d15D52Cc138FFB322b732239CD3630735AbaC88 on Zytron Mainnet:\n- 1.5 ETH",
+          actions: ['CHECK_WALLET'],
         }
-      }
+      },
     ],
     [
       {
         name: "{{user1}}",
         content: {
-          text: "Check my balance"
+          text: "Check my balance",
         }
       },
       {
         name: "{{agent}}",
         content: {
-          text: "I'll help you check your wallet balance",
-          action: "CHECK_BALANCE",
-          content: {
-            address: null
-          },
+          text: "Balance of 0x2d15D52Cc138FFB322b732239CD3630735AbaC88 on Zytron Mainnet:\n- 1.5 ETH",
+          actions: ['CHECK_WALLET'],
         }
-      }
+      },
     ],
     [
       {
         name: "{{user1}}",
         content: {
-          text: "Check 0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
+          text: "Check 0x2d15D52Cc138FFB322b732239CD3630735AbaC88",
         }
       },
       {
         name: "{{agent}}",
         content: {
-          text: "I'll help you check 0x2d15D52Cc138FFB322b732239CD3630735AbaC88's wallet balance",
-          action: "CHECK_BALANCE",
-          content: {
-            address: "0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
-          },
+          text: "Balance of 0x2d15D52Cc138FFB322b732239CD3630735AbaC88 on Zytron Mainnet:\n- 1.5 ETH",
+          actions: ['CHECK_WALLET'],
         }
-      }
+      },
     ],
   ],
 };

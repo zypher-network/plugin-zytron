@@ -1,12 +1,11 @@
-import type { Plugin } from "@elizaos/core";
-import { zytronProvider } from "./providers/wallet";
+import { type Plugin } from "@elizaos/core";
 import { checkWalletAction } from "./actions/checkWallet";
 import { sendTokenAction } from "./actions/sendToken";
 
 export const zytronPlugin: Plugin = {
   name: "zytron",
   description: "Zytron Plugin for Eliza",
-  providers: [zytronProvider],
+  providers: [],
   actions: [checkWalletAction, sendTokenAction],
   evaluators: [],
 };

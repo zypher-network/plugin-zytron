@@ -5,7 +5,7 @@ import { initWalletProvider } from '../providers/wallet';
 import { SendTokenContentResult, SupportedToken } from '../types';
 
 export const sendTokenAction: Action = {
-  name: 'sendToken',
+  name: 'SEND_TOKEN',
   description: 'Send token to the specified address on Zytron Mainnet.',
   similes: [
     'SEND_TOKEN',
@@ -21,18 +21,16 @@ export const sendTokenAction: Action = {
     _options: Record<string, unknown>,
     callback?: HandlerCallback
   ) => {
-    elizaLogger.log("Sending token...");
+    elizaLogger.info("Sending token...");
     
-    if (!state) {
-      state = (await runtime.composeState(message)) as State;
-    }
+    state = await runtime.composeState(message);
 
     const sendTokenContext = composePromptFromState({
       state,
       template: sendTokenTemplate,
     });
 
-    const xmlResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
+    const xmlResponse = await runtime.useModel(ModelType.TEXT_LARGE, {
       prompt: sendTokenContext,
     });
 
@@ -62,10 +60,14 @@ export const sendTokenAction: Action = {
       elizaLogger.error("Error during send token:", error.message);
       text = `Send Token failed: ${error.message}`;
     }
-    callback?.({
-      text,
-      content: { transactionHash, amount, symbol, recipient },
-    });
+    elizaLogger.info(`[send token]: ${text}`);
+
+    if (callback) {
+      callback({
+        text,
+        content: { transactionHash, amount, symbol, recipient }
+      });
+    }
     return true;
   },
   examples: [
@@ -80,12 +82,7 @@ export const sendTokenAction: Action = {
         name: "{{agent}}",
         content: {
           text: "I'll help you send 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88",
-          action: "SEND_TOKEN",
-          content: {
-            amount: "0.0001",
-            symbol: "ETH",
-            recipient: "0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
-          },
+          actions: ['SEND_TOKEN']
         }
       }
     ],
@@ -100,12 +97,7 @@ export const sendTokenAction: Action = {
         name: "{{agent}}",
         content: {
           text: "I'll help you transfer 0.0001 ETH to 0x2d15D52Cc138FFB322b732239CD3630735AbaC88",
-          action: "SEND_TOKEN",
-          content: {
-            amount: "0.0001",
-            symbol: "ETH",
-            recipient: "0x2d15D52Cc138FFB322b732239CD3630735AbaC88"
-          },
+          actions: ['SEND_TOKEN']
         }
       }
     ],

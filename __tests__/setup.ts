@@ -3,14 +3,17 @@ import { vi } from 'vitest';
 vi.mock('@elizaos/core', () => ({
   generateObjectDeprecated: vi.fn(),
   composeContext: vi.fn(),
+  composePromptFromState: vi.fn(),
   elizaLogger: {
     log: vi.fn(),
+    info: vi.fn(),
     debug: vi.fn(),
     error: vi.fn(),
     success: vi.fn(),
   },
-  ModelClass: {
-    LARGE: 'large'
+  parseKeyValueXml: vi.fn(),
+  ModelType: {
+    TEXT_LARGE: 'large'
   }
 }));
 
